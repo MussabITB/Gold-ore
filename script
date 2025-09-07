@@ -1,5 +1,4 @@
 local tweenservice = game:GetService("TweenService")
-local playersservice = game:GetService("Players")
 local debris = game:GetService("Debris")
 local droppedgold = game.workspace:WaitForChild("droppedgold")
 local pickupsound = game.Workspace.Sounds.pickup
@@ -7,7 +6,6 @@ local breaksound = game.Workspace.Sounds.breaks
 local debounce = false
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
-local goldvalue = script.Parent.Parent:WaitForChild("leaderstats").gold.Value
 local hastouched = false
 local hit = 0 
 local h = 15 --horizontal scale facotor/radius
@@ -19,14 +17,25 @@ local function goldblock(position, sine, cosine, part)
 	local nocollision = Instance.new("NoCollisionConstraint")
 	local gold = Instance.new("Part")
 	gold.Parent = droppedgold
-	gold.Size = Vector3.new(1.5, 1.5, 1.5)
+	gold.Size = Vector3.new(
+		1.5,
+		1.5,
+		1.5
+	)
 	gold.Material = Enum.Material.Metal
 	gold.BrickColor = BrickColor.new("Deep orange")
+	gold.CanCollide = true
+	gold.CanTouch = true
+	gold.Anchored = false
 	nocollision.Parent = gold
 	nocollision.Part0 = gold
 	nocollision.Part1 = part
 	gold.Position = position
-	gold.AssemblyLinearVelocity = Vector3.new(h*sine, v, h*cosine) --projects gold in random direction; sinx^2 + cosx^2 ≡ 1 so magnitude will be same for any direction in horizontal plane
+	gold.AssemblyLinearVelocity = Vector3.new(
+		h*sine,
+		v,
+		h*cosine
+	) --projects gold in random direction; sinx^2 + cosx^2 ≡ 1 so magnitude will be same for any direction in horizontal plane
 	gold.AssemblyAngularVelocity = Vector3.new( -- makes gold spin when shot out
 		math.rad(180),
 		math.rad(180),
@@ -47,7 +56,11 @@ local function onhit(part)
 		hastouched = true				
 		if hit >= breakpoint then -- if number of hits exeeds breakingpoint then ore breaks
 			for i = 1, 5 do -- repeats 5 times
-				local randompos = Vector3.new(math.random(0,1.25),math.random(0,1.25),math.random(0,1.25))
+				local randompos = Vector3.new(
+					math.random(0,1.25),
+					math.random(0,1.25),
+					math.random(0,1.25)
+				)
 				local n = math.random(-360, 360) -- random direction
 				local x = math.sin(h*n) -- x component of velocity
 				local z = math.cos(h*n)	-- z compenent of velocity
@@ -67,7 +80,6 @@ local function onhit(part)
 			local x = math.sin(h*n)
 			local z = math.cos(h*n)	
 			goldblock(part.Position, x, z, part)
-
 		end		
 		local info = TweenInfo.new( 
 			0.16,
@@ -83,7 +95,8 @@ local function onhit(part)
 		local tween = tweenservice:Create(
 			part, 
 			info,
-			{CFrame = part.CFrame * CFrame.Angles(a, b, c)}) -- ore jitters in random direction, more likely horizontally
+			{CFrame = part.CFrame * CFrame.Angles(a, b, c)}
+		) -- ore jitters in random direction, more likely horizontally
 		tween:Play()
 		part:FindFirstChild(tostring(math.random(1,12))):play() -- plays random mining sound 
 		task.delay(0.5, function()
@@ -91,8 +104,6 @@ local function onhit(part)
 		end)
 	end
 end
-
-
 
 -- function for picking up the gold
 local function goldpickup()
@@ -105,7 +116,6 @@ local function goldpickup()
 						debounce = true						
 						local children = character.HumanoidRootPart:GetChildren()
 						local latestsound
-
 						for i = #children, 1, -1 do -- counts list of pickup sounds backwards
 							if children[i].Name == "pickup" then
 								latestsound = children[i] -- selects most recently added pickup sound
@@ -113,10 +123,9 @@ local function goldpickup()
 							end
 						end
 						local sound = pickupsound:Clone()	
-
-						if character.HumanoidRootPart:FindFirstChild("pickup") then -- if character already has sound in their person, the new sound will increase in pitch by 0.1
+						if character.HumanoidRootPart:FindFirstChild("pickup") then -- if character already has sound in their person, the new sound will increase in pitch by 0.01
 							sound.Parent = character.HumanoidRootPart
-							sound.PitchShiftSoundEffect.Octave = latestsound.PitchShiftSoundEffect.Octave + 0.1
+							sound.PitchShiftSoundEffect.Octave = latestsound.PitchShiftSoundEffect.Octave + 0.05
 						else -- if they dont have pickup sound it just clones as usual 
 							sound.Parent = character.HumanoidRootPart
 						end
@@ -126,7 +135,8 @@ local function goldpickup()
 						end)							
 						v:Destroy() -- gold destroys 
 						character.HumanoidRootPart.Shine:Emit(1) -- emits particle from character
-						script.Parent.Parent:WaitForChild("leaderstats").gold.Value += 1 -- gives player gold in leaderboard
+						local goldpoints = script.Parent.Parent:WaitForChild("leaderstats").gold
+						goldpoints.Value += 1 -- gives player gold in leaderboard
 						task.wait()
 						debounce = false						
 					end
@@ -145,19 +155,18 @@ for i, v in pairs(character:GetChildren()) do
 		v.Touched:Connect(function(button)
 			if button.Name == "button" and button:IsA("Part") then -- if buttons name is a part
 				if not hastouched then
-					if script.Parent.Parent:WaitForChild("leaderstats").gold.Value >= button.Price.Value then -- if players gold is equal to or greater than price (which is a number value child of respective button)
+					if player:WaitForChild("leaderstats").gold.Value >= button.Price.Value then -- if players gold is equal to or greater than price (which is a number value child of respective button)					
 						hastouched2 = true
-						button.BrickColor = BrickColor.new("Lime green")
+						button.BrickColor  = BrickColor.new("Lime green")
 						button.CanTouch = false
-						script.Parent.Parent:WaitForChild("leaderstats").gold.Value -= button.Price.Value
+						player:WaitForChild("leaderstats").gold.Value -= button.Price.Value
 						local picaxe = game.Workspace.Picaxes[button.Parent.Name]:Clone()
-						picaxe.Parent = game.Players.LocalPlayer.Backpack
-						
+						picaxe.Parent = player.Backpack						
 					else -- unsufficient funds
 						hastouched2 = true
-						button.BrickColor = BrickColor.new("Really red")
+						button.BrickColor  = BrickColor.new("Really red")
 						wait(1)
-						button.BrickColor = BrickColor.new("Medium stone grey")
+						button.BrickColor  = BrickColor.new("Medium stone grey")
 						hastouched2 = false
 					end
 				end
@@ -181,7 +190,7 @@ droppedgold.ChildAdded:Connect(goldpickup)
 
 -- spawns a block to check if space is occupied, if not then it will spawn gold ore.
 while true do 
-	wait(200) -- cooldown (plus 0.5s)
+	wait(10) -- cooldown (plus 0.5s)
 	local zlist = { -20, -28, -36, -44, -52, -60, -68, -76, -84 } -- co-ordinated of grid
 	local xlist = { -32, -24, -16, -8, 0, 8, 16, 24, 32 }
 	local z = zlist[math.random(1,#zlist)]
@@ -190,11 +199,21 @@ while true do
 	local checker = Instance.new("Part") -- checker part
 	checker.Parent = game.Workspace
 	checker.CanCollide = false
+	checker.CanTouch = true
+	checker.Anchored = false
 	checker.Transparency = 0.5
-	checker.Position = Vector3.new(x, 5, z)
-	checker.Size = Vector3.new(7, 7, 7)
+	checker.Material = Enum.Material.SmoothPlastic
+	checker.Position = Vector3.new(
+		x,
+		5,
+		z
+	)
+	checker.Size = Vector3.new(
+		7,
+		7,
+		7
+	)
 	checker.Touched:Connect(function(hit) -- if checker touches something then sets continue to false
-		--print(hit.Name)
 		if hit.Name == "Baseplate" then -- voids if it hits the floor
 		else
 			continue = false
