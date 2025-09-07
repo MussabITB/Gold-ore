@@ -1,0 +1,229 @@
+local tweenservice = game:GetService("TweenService")
+local debris = game:GetService("Debris")
+local droppedgold = game.workspace:WaitForChild("droppedgold")
+local pickupsound = game.Workspace.Sounds.pickup
+local breaksound = game.Workspace.Sounds.breaks
+local debounce = false
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hastouched = false
+local hit = 0 
+local h = 15 --horizontal scale facotor/radius
+local v = 60 --vertical scale factor
+local breakpoint = 20
+
+--creats gold block projectile
+local function goldblock(position, sine, cosine, part) 
+	local nocollision = Instance.new("NoCollisionConstraint")
+	local gold = Instance.new("Part")
+	gold.Parent = droppedgold
+	gold.Size = Vector3.new(
+		1.5,
+		1.5,
+		1.5
+	)
+	gold.Material = Enum.Material.Metal
+	gold.BrickColor = BrickColor.new("Deep orange")
+	gold.CanCollide = true
+	gold.CanTouch = true
+	gold.Anchored = false
+	nocollision.Parent = gold
+	nocollision.Part0 = gold
+	nocollision.Part1 = part
+	gold.Position = position
+	gold.AssemblyLinearVelocity = Vector3.new(
+		h*sine,
+		v,
+		h*cosine
+	) --projects gold in random direction; sinx^2 + cosx^2 ≡ 1 so magnitude will be same for any direction in horizontal plane
+	gold.AssemblyAngularVelocity = Vector3.new( -- makes gold spin when shot out
+		math.rad(180),
+		math.rad(180),
+		math.rad(180)
+	)
+	gold.CustomPhysicalProperties = PhysicalProperties.new( -- altering physical properties so gold doesnt bounce around too much
+		0.0001,
+		2,
+		0,
+		1,
+		10
+	)
+end
+
+-- function for when ore is mined
+local function onhit(part) 
+	if part.Name == "Stone" and not hastouched then -- checks if picaxe has touched ore and if hastouched is true
+		hastouched = true				
+		if hit >= breakpoint then -- if number of hits exeeds breakingpoint then ore breaks
+			for i = 1, 5 do -- repeats 5 times
+				local randompos = Vector3.new(
+					math.random(0,1.25),
+					math.random(0,1.25),
+					math.random(0,1.25)
+				)
+				local n = math.random(-360, 360) -- random direction
+				local x = math.sin(h*n) -- x component of velocity
+				local z = math.cos(h*n)	-- z compenent of velocity
+				goldblock(part.Position + randompos, x, z, part) 
+				debris:AddItem(part.Parent, 0.08) -- destroys ore		
+			end
+			local breaks = breaksound:Clone()
+			breaks.Parent = character.HumanoidRootPart
+			breaks:Play()
+			breaks.Ended:Connect(function()
+				breaks:Destroy()
+			end)
+			hit = 0 
+		else
+			hit += character:FindFirstChildOfClass("Tool").power.Value or 1
+			local n = math.random(-360, 360) --random number gen
+			local x = math.sin(h*n)
+			local z = math.cos(h*n)	
+			goldblock(part.Position, x, z, part)
+		end		
+		local info = TweenInfo.new( 
+			0.16,
+			Enum.EasingStyle.Elastic, 
+			Enum.EasingDirection.Out, 
+			0, 
+			true,
+			0
+		)		
+		local a = math.rad(math.random(0, 1))
+		local b = math.rad(math.random(-4, 4))
+		local c = math.rad(math.random(-1, 0))
+		local tween = tweenservice:Create(
+			part, 
+			info,
+			{CFrame = part.CFrame * CFrame.Angles(a, b, c)}
+		) -- ore jitters in random direction, more likely horizontally
+		tween:Play()
+		part:FindFirstChild(tostring(math.random(1,12))):play() -- plays random mining sound 
+		task.delay(0.5, function()
+			hastouched = false
+		end)
+	end
+end
+
+-- function for picking up the gold
+local function goldpickup()
+	for i, v in pairs(droppedgold:GetChildren()) do -- gets children of all gold located in dropped gold folder
+		v.Touched:Connect(function(hit)
+			local character = hit:FindFirstAncestorOfClass("Model")
+			if character and v.Name == "gold" then -- checks if gold hit player and is named gold (see line 133)
+				if character:FindFirstChild("Humanoid") then -- checks if thing that touched gold is human
+					if not debounce then
+						debounce = true						
+						local children = character.HumanoidRootPart:GetChildren()
+						local latestsound
+						for i = #children, 1, -1 do -- counts list of pickup sounds backwards
+							if children[i].Name == "pickup" then
+								latestsound = children[i] -- selects most recently added pickup sound
+								break
+							end
+						end
+						local sound = pickupsound:Clone()	
+						if character.HumanoidRootPart:FindFirstChild("pickup") then -- if character already has sound in their person, the new sound will increase in pitch by 0.01
+							sound.Parent = character.HumanoidRootPart
+							sound.PitchShiftSoundEffect.Octave = latestsound.PitchShiftSoundEffect.Octave + 0.05
+						else -- if they dont have pickup sound it just clones as usual 
+							sound.Parent = character.HumanoidRootPart
+						end
+						sound:Play()
+						sound.Ended:Connect(function() -- when sound finishes, it self destructs 
+							sound:Destroy()
+						end)							
+						v:Destroy() -- gold destroys 
+						character.HumanoidRootPart.Shine:Emit(1) -- emits particle from character
+						local goldpoints = script.Parent.Parent:WaitForChild("leaderstats").gold
+						goldpoints.Value += 1 -- gives player gold in leaderboard
+						task.wait()
+						debounce = false						
+					end
+				end
+			elseif v.Name == "Part" and hit.Name == "Baseplate" then -- when gold part hits baseplate, its name is changed to 'gold' so that it can only be picked up once it hits the floor
+				v.Name = "gold"
+			end					
+		end)
+	end
+end
+
+-- fucntion for the shop
+local hastouched2 = false
+for i, v in pairs(character:GetChildren()) do
+	if v:IsA("BasePart") then -- if children of character is a part
+		v.Touched:Connect(function(button)
+			if button.Name == "button" and button:IsA("Part") then -- if buttons name is a part
+				if not hastouched then
+					if player:WaitForChild("leaderstats").gold.Value >= button.Price.Value then -- if players gold is equal to or greater than price (which is a number value child of respective button)					
+						hastouched2 = true
+						button.BrickColor  = BrickColor.new("Lime green")
+						button.CanTouch = false
+						player:WaitForChild("leaderstats").gold.Value -= button.Price.Value
+						local picaxe = game.Workspace.Picaxes[button.Parent.Name]:Clone()
+						picaxe.Parent = player.Backpack						
+					else -- unsufficient funds
+						hastouched2 = true
+						button.BrickColor  = BrickColor.new("Really red")
+						wait(1)
+						button.BrickColor  = BrickColor.new("Medium stone grey")
+						hastouched2 = false
+					end
+				end
+			end
+		end)
+	end
+end
+
+-- when a tool appears in a character, it will add a touch event to each part and connects it to onhit function 
+character.ChildAdded:Connect(function(child)
+	if child:IsA("Tool") then
+		for i, v in pairs(child:GetChildren()) do
+			if v:IsA("Part") then
+				v.Touched:Connect(onhit)
+			end
+		end
+	end	
+end)
+
+droppedgold.ChildAdded:Connect(goldpickup)
+
+-- spawns a block to check if space is occupied, if not then it will spawn gold ore.
+while true do 
+	wait(10) -- cooldown (plus 0.5s)
+	local zlist = { -20, -28, -36, -44, -52, -60, -68, -76, -84 } -- co-ordinated of grid
+	local xlist = { -32, -24, -16, -8, 0, 8, 16, 24, 32 }
+	local z = zlist[math.random(1,#zlist)]
+	local x = xlist[math.random(1,#xlist)]
+	local continue = true
+	local checker = Instance.new("Part") -- checker part
+	checker.Parent = game.Workspace
+	checker.CanCollide = false
+	checker.CanTouch = true
+	checker.Anchored = false
+	checker.Transparency = 0.5
+	checker.Material = Enum.Material.SmoothPlastic
+	checker.Position = Vector3.new(
+		x,
+		5,
+		z
+	)
+	checker.Size = Vector3.new(
+		7,
+		7,
+		7
+	)
+	checker.Touched:Connect(function(hit) -- if checker touches something then sets continue to false
+		if hit.Name == "Baseplate" then -- voids if it hits the floor
+		else
+			continue = false
+		end	
+	end)
+	wait(0.5)
+	checker:Destroy()
+	if continue then -- if checkers hasnt touched anything then it spawns a gold ore
+		local ore = game.Workspace:FindFirstChild("Gold Ore"):Clone()
+		ore.Parent = workspace
+		ore:PivotTo(CFrame.new(x, 3.5, z)) 
+	end
+end         
